@@ -2,10 +2,19 @@ package main
 
 import (
 	"fmt"
-	"html/template"
+	"log"
 	"net/http"
-	"path"
+
+	"github.com/ediprako/pricemonitor/handler"
+	"github.com/ediprako/pricemonitor/repository/pgsql"
+	"github.com/ediprako/pricemonitor/usecase"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
+
+func init() {
+	fmt.Println("INIT")
+}
 
 func main() {
 	http.Handle("/static/",
@@ -16,24 +25,17 @@ func main() {
 		http.StripPrefix("/images/",
 			http.FileServer(http.Dir("handler/img"))))
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		var filepath = path.Join("handler", "ui", "index.html")
-		var tmpl, err = template.ParseFiles(filepath)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	db, err := sqlx.Connect("postgres", "user=postgres password=root dbname=price_monitor sslmode=disable")
+	if err != nil {
+		log.Fatalln(err)
+	}
 
-		var data = map[string]interface{}{
-			"title": "Learning Golang Web",
-			"name":  "Batman",
-		}
+	repoDB := pgsql.New(db)
+	uc := usecase.New(repoDB)
+	h := handler.New(uc)
 
-		err = tmpl.Execute(w, data)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
+	http.HandleFunc("/", h.HandleIndex)
+	http.HandleFunc("/addlink", h.HandleAddLink)
 
 	fmt.Println("server started at localhost:9000")
 	http.ListenAndServe(":9000", nil)
