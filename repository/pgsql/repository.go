@@ -24,10 +24,10 @@ type ProductPayload struct {
 }
 
 type Product struct {
-	ID            int64
-	Name          string
-	CurrentPrice  int64
-	OriginalPrice int64
+	ID            int64  `db:"id"`
+	Name          string `db:"name"`
+	CurrentPrice  int64  `db:"current_price"`
+	OriginalPrice int64  `db:"original_price"`
 	Images        []string
 }
 
@@ -41,7 +41,7 @@ func (r *repository) GetProductsByID(ctx context.Context, id int64) (Product, er
 		return Product{}, err
 	}
 
-	sqlImage := `SELECT image FROM product_image WHERE product_id=$1`
+	sqlImage := `SELECT image FROM product_images WHERE product_id=$1`
 	rows, err := r.db.QueryxContext(ctx, sqlImage, id)
 	if err != nil {
 		return Product{}, err
@@ -72,7 +72,7 @@ func (r *repository) GetProducts(ctx context.Context, limit, offset int) ([]Prod
 		listProductID[i] = product.ID
 	}
 
-	sqlImage := `SELECT product_id,image FROM product_image WHERE proudc_id = ANY($1)`
+	sqlImage := `SELECT product_id,image FROM product_images WHERE product_id = ANY($1)`
 	rows, err := r.db.QueryxContext(ctx, sqlImage, pq.Array(listProductID))
 	if err != nil {
 		return nil, err
@@ -98,6 +98,19 @@ func (r *repository) GetProducts(ctx context.Context, limit, offset int) ([]Prod
 	}
 
 	return products, nil
+}
+
+func (r *repository) GetTotalProduct(ctx context.Context) (int64, error) {
+	sql := `SELECT count(*) as total FROM
+		product`
+
+	var total int64
+	err := r.db.QueryRowContext(ctx, sql).Scan(&total)
+	if err != nil {
+		return 0, err
+	}
+
+	return total, nil
 }
 
 func (r *repository) UpsertProduct(ctx context.Context, payload ProductPayload) (int64, error) {

@@ -15,6 +15,7 @@ type dbProvider interface {
 	GetProducts(ctx context.Context, limit, offset int) ([]pgsql.Product, error)
 	UpsertProduct(ctx context.Context, payload pgsql.ProductPayload) (int64, error)
 	InsertPriceHistory(ctx context.Context, productID int64, currentPrice int64, originalPrice int64) error
+	GetTotalProduct(ctx context.Context) (int64, error)
 }
 
 type usecase struct {
@@ -28,6 +29,15 @@ func New(db dbProvider) *usecase {
 }
 
 type ProductPayload pgsql.ProductPayload
+type Product struct {
+	ID                  int64    `json:"id"`
+	Name                string   `json:"name"`
+	CurrentPrice        int64    `json:"current_price"`
+	CurrentPriceString  string   `json:"current_price_string"`
+	OriginalPrice       int64    `json:"original_price"`
+	OriginalPriceString string   `json:"original_price_string"`
+	Images              []string `json:"images,omitempty"`
+}
 
 func (u *usecase) RegisterProduct(ctx context.Context, link string) error {
 	err, product, err2 := u.getProductFromLink(link)
@@ -40,6 +50,65 @@ func (u *usecase) RegisterProduct(ctx context.Context, link string) error {
 		return err
 	}
 	return nil
+}
+
+func (u *usecase) GetProductDetail(ctx context.Context, id int64) (Product, error) {
+	product, err := u.db.GetProductsByID(ctx, id)
+	if err != nil {
+		return Product{}, err
+	}
+
+	result := Product{
+		ID:            product.ID,
+		Name:          product.Name,
+		CurrentPrice:  product.CurrentPrice,
+		OriginalPrice: product.OriginalPrice,
+		Images:        product.Images,
+	}
+
+	return result, nil
+}
+
+type PaginateData struct {
+	Draw            string    `json:"draw"`
+	RecordsTotal    int64     `json:"recordsTotal"`
+	RecordsFiltered int64     `json:"recordsFiltered"`
+	Products        []Product `json:"data"`
+}
+
+func (u *usecase) ListProduct(ctx context.Context, draw string, page, pagesize int) (PaginateData, error) {
+	if page == 0 {
+		page = 1
+	}
+	offset := (page - 1) * pagesize
+	products, err := u.db.GetProducts(ctx, pagesize, offset)
+	if err != nil {
+		return PaginateData{}, err
+	}
+	total, err := u.db.GetTotalProduct(ctx)
+
+	if err != nil {
+		return PaginateData{}, err
+	}
+
+	var paging PaginateData
+	paging.RecordsTotal = total
+	paging.RecordsFiltered = total
+	paging.Draw = draw
+
+	var result []Product
+	for _, product := range products {
+		result = append(result, Product{
+			ID:            product.ID,
+			Name:          product.Name,
+			CurrentPrice:  product.CurrentPrice,
+			OriginalPrice: product.OriginalPrice,
+		})
+	}
+
+	paging.Products = result
+
+	return paging, nil
 }
 
 func (u *usecase) getProductFromLink(link string) (error, ProductPayload, error) {
@@ -68,7 +137,7 @@ func (u *usecase) getProductFromLink(link string) (error, ProductPayload, error)
 }
 
 func convertToAngka(rupiah string) int64 {
-	m1 := regexp.MustCompile(`/,.*|[^0-9]/g`)
+	m1 := regexp.MustCompile(`,.*|\D`)
 	str := m1.ReplaceAllString(rupiah, "")
 	n, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {

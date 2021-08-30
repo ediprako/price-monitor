@@ -48,3 +48,13 @@ func WriteHTTPResponse(w http.ResponseWriter, data interface{}, err error, httpS
 	w.WriteHeader(code)
 	w.Write(res)
 }
+
+func WriteHTTPAjax(w http.ResponseWriter, data interface{}, code int) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(code)
+
+	js, _ := json.Marshal(data)
+
+	w.Write(js)
+}

@@ -34,8 +34,11 @@ func main() {
 	uc := usecase.New(repoDB)
 	h := handler.New(uc)
 
-	http.HandleFunc("/", h.HandleIndex)
+	http.HandleFunc("/", h.HandleIndexView)
+	http.HandleFunc("/listview", h.HandleListView)
+	http.HandleFunc("/list/product", h.HandleListProduct)
 	http.HandleFunc("/addlink", h.HandleAddLink)
+	http.HandleFunc("/detailview", h.HandleDetailView)
 
 	fmt.Println("server started at localhost:9000")
 	http.ListenAndServe(":9000", nil)
