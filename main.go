@@ -39,7 +39,11 @@ func main() {
 	http.HandleFunc("/list/product", h.HandleListProduct)
 	http.HandleFunc("/addlink", h.HandleAddLink)
 	http.HandleFunc("/detailview", h.HandleDetailView)
+	http.HandleFunc("/histories", h.HandleListHistories)
 
 	fmt.Println("server started at localhost:9000")
-	http.ListenAndServe(":9000", nil)
+	err = http.ListenAndServe(":8999", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

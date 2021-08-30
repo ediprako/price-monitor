@@ -2,18 +2,20 @@ package handler
 
 import (
 	"context"
-	httpHandler "github.com/ediprako/pricemonitor/handler/http"
-	"github.com/ediprako/pricemonitor/usecase"
 	"html/template"
 	"net/http"
 	"path"
 	"strconv"
+
+	httpHandler "github.com/ediprako/pricemonitor/handler/http"
+	"github.com/ediprako/pricemonitor/usecase"
 )
 
 type usecaseProvider interface {
 	RegisterProduct(ctx context.Context, link string) error
 	ListProduct(ctx context.Context, draw string, page, pagesize int) (usecase.PaginateData, error)
 	GetProductDetail(ctx context.Context, id int64) (usecase.Product, error)
+	ListPriceHistory(ctx context.Context, productID int64, limit int) ([]usecase.PriceHistory, error)
 }
 
 type handler struct {
@@ -27,16 +29,14 @@ func New(usecase usecaseProvider) *handler {
 }
 
 func (h *handler) HandleIndexView(w http.ResponseWriter, _ *http.Request) {
-	var filepath = path.Join("handler", "ui", "index.html")
-	var tmpl, err = template.ParseFiles(filepath)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	var tmpl = template.Must(template.ParseFiles(
+		path.Join("handler", "ui", "index.html"),
+		path.Join("handler", "ui", "navbar.html"),
+	))
 
 	var data = map[string]interface{}{}
 
-	err = tmpl.Execute(w, data)
+	err := tmpl.ExecuteTemplate(w, "index", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -46,16 +46,14 @@ func (h *handler) HandleIndexView(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *handler) HandleListView(w http.ResponseWriter, _ *http.Request) {
-	var filepath = path.Join("handler", "ui", "list.html")
-	var tmpl, err = template.ParseFiles(filepath)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	var tmpl = template.Must(template.ParseFiles(
+		path.Join("handler", "ui", "list.html"),
+		path.Join("handler", "ui", "navbar.html"),
+	))
 
 	var data = map[string]interface{}{}
 
-	err = tmpl.Execute(w, data)
+	err := tmpl.ExecuteTemplate(w, "list", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -64,12 +62,10 @@ func (h *handler) HandleListView(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *handler) HandleDetailView(w http.ResponseWriter, r *http.Request) {
-	var filepath = path.Join("handler", "ui", "detail.html")
-	var tmpl, err = template.ParseFiles(filepath)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	var tmpl = template.Must(template.ParseFiles(
+		path.Join("handler", "ui", "detail.html"),
+		path.Join("handler", "ui", "navbar.html"),
+	))
 
 	id, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
 	if err != nil {
@@ -81,7 +77,7 @@ func (h *handler) HandleDetailView(w http.ResponseWriter, r *http.Request) {
 		"product": product,
 	}
 
-	err = tmpl.Execute(w, data)
+	err = tmpl.ExecuteTemplate(w, "detail", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -114,5 +110,22 @@ func (h *handler) HandleListProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpHandler.WriteHTTPAjax(w, paginated, http.StatusOK)
-	return
+}
+
+func (h *handler) HandleListHistories(w http.ResponseWriter, r *http.Request) {
+	productID, err := strconv.ParseInt(r.FormValue("product_id"), 10, 64)
+	if err != nil {
+		httpHandler.WriteHTTPResponse(w, nil, err, http.StatusBadRequest)
+		return
+	}
+
+	limit, _ := strconv.Atoi(r.FormValue("limit"))
+
+	histories, err := h.usecase.ListPriceHistory(r.Context(), productID, limit)
+	if err != nil {
+		httpHandler.WriteHTTPResponse(w, nil, err, http.StatusInternalServerError)
+		return
+	}
+
+	httpHandler.WriteHTTPAjax(w, histories, http.StatusOK)
 }

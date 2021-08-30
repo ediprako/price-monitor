@@ -2,6 +2,8 @@ package pgsql
 
 import (
 	"context"
+	"time"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
@@ -20,6 +22,7 @@ type ProductPayload struct {
 	Name          string
 	CurrentPrice  int64
 	OriginalPrice int64
+	URL           string
 	Images        []string
 }
 
@@ -28,11 +31,20 @@ type Product struct {
 	Name          string `db:"name"`
 	CurrentPrice  int64  `db:"current_price"`
 	OriginalPrice int64  `db:"original_price"`
+	URL           string `db:"url"`
 	Images        []string
 }
 
+type PriceHistory struct {
+	ID            int64     `db:"id"`
+	ProductID     int64     `db:"product_id"`
+	CurrentPrice  int64     `db:"current_price"`
+	OriginalPrice int64     `db:"original_price"`
+	UpdateTime    time.Time `db:"updated_at"`
+}
+
 func (r *repository) GetProductsByID(ctx context.Context, id int64) (Product, error) {
-	sql := `SELECT id, name, current_price, original_price FROM
+	sql := `SELECT id, name, current_price, original_price,coalesce(url,'') url FROM
 		product WHERE id=$1`
 
 	var product Product
@@ -58,7 +70,7 @@ func (r *repository) GetProductsByID(ctx context.Context, id int64) (Product, er
 }
 
 func (r *repository) GetProducts(ctx context.Context, limit, offset int) ([]Product, error) {
-	sql := `SELECT id, name, current_price, original_price FROM
+	sql := `SELECT id, name, current_price, original_price, coalesce(url,'') url FROM
 		product LIMIT $1 OFFSET $2`
 
 	var products []Product
@@ -125,12 +137,12 @@ func (r *repository) UpsertProduct(ctx context.Context, payload ProductPayload) 
 		}
 	}()
 
-	sql := `INSERT INTO product (name, current_price, original_price) VALUES 
-		( $1, $2, $3) ON CONFLICT (name) DO UPDATE SET current_price = $2, original_price = $3
+	sql := `INSERT INTO product (name, current_price, original_price,url) VALUES 
+		( $1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET current_price = $2, original_price = $3, url = $4
 		RETURNING id`
 
 	var id int64
-	err = tx.QueryRowContext(ctx, sql, payload.Name, payload.CurrentPrice, payload.OriginalPrice).Scan(&id)
+	err = tx.QueryRowContext(ctx, sql, payload.Name, payload.CurrentPrice, payload.OriginalPrice, payload.URL).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -164,4 +176,18 @@ func (r *repository) InsertPriceHistory(ctx context.Context, productID int64, cu
 	_, err := r.db.ExecContext(ctx, sql, productID, currentPrice, originalPrice)
 
 	return err
+}
+
+func (r *repository) GetLastPriceHistory(ctx context.Context, productID int64, limit int) ([]PriceHistory, error) {
+	sql := `SELECT id, product_id, current_price, original_price, updated_at FROM (SELECT id, product_id, current_price, original_price, updated_at FROM
+		price_history WHERE product_id = $1 
+		ORDER BY updated_at DESC 
+		LIMIT $2) p ORDER BY updated_at ASC`
+	var histories []PriceHistory
+	err := r.db.SelectContext(ctx, &histories, sql, productID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return histories, nil
 }

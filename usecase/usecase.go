@@ -2,12 +2,14 @@ package usecase
 
 import (
 	"context"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/ediprako/pricemonitor/repository/pgsql"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/dustin/go-humanize"
+	"github.com/ediprako/pricemonitor/repository/pgsql"
 )
 
 type dbProvider interface {
@@ -16,6 +18,7 @@ type dbProvider interface {
 	UpsertProduct(ctx context.Context, payload pgsql.ProductPayload) (int64, error)
 	InsertPriceHistory(ctx context.Context, productID int64, currentPrice int64, originalPrice int64) error
 	GetTotalProduct(ctx context.Context) (int64, error)
+	GetLastPriceHistory(ctx context.Context, productID int64, limit int) ([]pgsql.PriceHistory, error)
 }
 
 type usecase struct {
@@ -36,7 +39,16 @@ type Product struct {
 	CurrentPriceString  string   `json:"current_price_string"`
 	OriginalPrice       int64    `json:"original_price"`
 	OriginalPriceString string   `json:"original_price_string"`
+	URL                 string   `json:"url"`
 	Images              []string `json:"images,omitempty"`
+}
+
+type PriceHistory struct {
+	ID            int64  `json:"id"`
+	ProductID     int64  `json:"product_id"`
+	CurrentPrice  int64  `json:"current_price"`
+	OriginalPrice int64  `json:"original_price"`
+	UpdateTime    string `json:"update_time"`
 }
 
 func (u *usecase) RegisterProduct(ctx context.Context, link string) error {
@@ -59,11 +71,14 @@ func (u *usecase) GetProductDetail(ctx context.Context, id int64) (Product, erro
 	}
 
 	result := Product{
-		ID:            product.ID,
-		Name:          product.Name,
-		CurrentPrice:  product.CurrentPrice,
-		OriginalPrice: product.OriginalPrice,
-		Images:        product.Images,
+		ID:                  product.ID,
+		Name:                product.Name,
+		CurrentPrice:        product.CurrentPrice,
+		OriginalPrice:       product.OriginalPrice,
+		Images:              product.Images,
+		URL:                 product.URL,
+		OriginalPriceString: "Rp. " + humanize.Comma(product.OriginalPrice),
+		CurrentPriceString:  "Rp. " + humanize.Comma(product.CurrentPrice),
 	}
 
 	return result, nil
@@ -103,6 +118,7 @@ func (u *usecase) ListProduct(ctx context.Context, draw string, page, pagesize i
 			Name:          product.Name,
 			CurrentPrice:  product.CurrentPrice,
 			OriginalPrice: product.OriginalPrice,
+			URL:           product.URL,
 		})
 	}
 
@@ -126,6 +142,9 @@ func (u *usecase) getProductFromLink(link string) (error, ProductPayload, error)
 	product.Name = doc.Find("h1#product-name").Text()
 	product.CurrentPrice = convertToAngka(doc.Find("div#product-final-price").First().Text())
 	product.OriginalPrice = convertToAngka(doc.Find("div#product-discount-price").First().Text())
+	if product.OriginalPrice == 0 {
+		product.OriginalPrice = product.CurrentPrice
+	}
 	doc.Find(".css-1iv32ek").Children().Each(func(i int, sel *goquery.Selection) {
 		srcCrop, _ := sel.Find("img#product-image").Attr("src")
 		sliceSrc := strings.Split(srcCrop, "&")
@@ -133,6 +152,8 @@ func (u *usecase) getProductFromLink(link string) (error, ProductPayload, error)
 			product.Images = append(product.Images, sliceSrc[0])
 		}
 	})
+
+	product.URL = link
 	return err, product, nil
 }
 
@@ -144,4 +165,27 @@ func convertToAngka(rupiah string) int64 {
 		return 0
 	}
 	return n
+}
+
+func (u *usecase) ListPriceHistory(ctx context.Context, productID int64, limit int) ([]PriceHistory, error) {
+	if limit == 0 {
+		limit = 100
+	}
+	histories, err := u.db.GetLastPriceHistory(ctx, productID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]PriceHistory, len(histories))
+	for i, history := range histories {
+		result[i] = PriceHistory{
+			ID:            history.ID,
+			ProductID:     history.ProductID,
+			CurrentPrice:  history.CurrentPrice,
+			OriginalPrice: history.OriginalPrice,
+			UpdateTime:    history.UpdateTime.Format("2006-01-02 15:04"),
+		}
+	}
+
+	return result, nil
 }
