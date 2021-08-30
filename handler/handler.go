@@ -70,7 +70,13 @@ func (h *handler) HandleDetailView(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	product, err := h.usecase.GetProductDetail(r.Context(), 8)
+
+	id, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	product, err := h.usecase.GetProductDetail(r.Context(), id)
 	var data = map[string]interface{}{
 		"product": product,
 	}
