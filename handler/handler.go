@@ -44,6 +44,7 @@ func (h *handler) HandleIndexView(w http.ResponseWriter, _ *http.Request) {
 
 	err := tmpl.ExecuteTemplate(w, "index", data)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -63,6 +64,7 @@ func (h *handler) HandleListView(w http.ResponseWriter, _ *http.Request) {
 
 	err := tmpl.ExecuteTemplate(w, "list", data)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -88,6 +90,7 @@ func (h *handler) HandleDetailView(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.ExecuteTemplate(w, "detail", data)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -101,6 +104,7 @@ func (h *handler) HandleAddLink(w http.ResponseWriter, r *http.Request) {
 
 	id, err := h.usecase.RegisterProduct(r.Context(), inputLink)
 	if err != nil {
+		log.Println(err)
 		httpHandler.WriteHTTPResponse(w, nil, err, http.StatusInternalServerError)
 		return
 	}
@@ -117,6 +121,7 @@ func (h *handler) HandleListProduct(w http.ResponseWriter, r *http.Request) {
 	draw := r.FormValue("draw")
 	paginated, err := h.usecase.ListProduct(r.Context(), draw, start, length)
 	if err != nil {
+		log.Println(err)
 		httpHandler.WriteHTTPResponse(w, nil, err, http.StatusInternalServerError)
 		return
 	}
@@ -135,6 +140,7 @@ func (h *handler) HandleListHistories(w http.ResponseWriter, r *http.Request) {
 
 	histories, err := h.usecase.ListPriceHistory(r.Context(), productID, limit)
 	if err != nil {
+		log.Println(err)
 		httpHandler.WriteHTTPResponse(w, nil, err, http.StatusInternalServerError)
 		return
 	}
