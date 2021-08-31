@@ -8,6 +8,8 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/microcosm-cc/bluemonday"
+
 	"github.com/ediprako/pricemonitor/usecase"
 
 	httpHandler "github.com/ediprako/pricemonitor/handler/http"
@@ -94,6 +96,9 @@ func (h *handler) HandleDetailView(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) HandleAddLink(w http.ResponseWriter, r *http.Request) {
 	inputLink := r.FormValue("input_link")
+	p := bluemonday.UGCPolicy()
+	inputLink = p.Sanitize(inputLink)
+
 	id, err := h.usecase.RegisterProduct(r.Context(), inputLink)
 	if err != nil {
 		httpHandler.WriteHTTPResponse(w, nil, err, http.StatusInternalServerError)
