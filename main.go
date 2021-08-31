@@ -25,7 +25,7 @@ func main() {
 		http.StripPrefix("/images/",
 			http.FileServer(http.Dir("handler/img"))))
 
-	db, err := sqlx.Connect("postgres", "user=postgres password=root dbname=price_monitor sslmode=disable")
+	db, err := sqlx.Connect("postgres", "postgres://uaqvhewtenpctm:6323e54cc2b84b73ad2ebac5820e172c15624660d4990ce97031eeea462bd75a@ec2-54-156-60-12.compute-1.amazonaws.com:5432/dgk2vue5v330d")
 	if err != nil {
 		log.Fatalln(err)
 	}
