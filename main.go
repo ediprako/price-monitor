@@ -30,8 +30,9 @@ func main() {
 	dbname := os.Getenv("DBNAME")
 	host := os.Getenv("DBHOST")
 	dbport := os.Getenv("DBPORT")
+	sslmode := os.Getenv("DBSSLMODE")
 
-	db, err := settingDB(user, password, dbname, host, dbport)
+	db, err := settingDB(user, password, dbname, host, dbport, sslmode)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,8 +72,9 @@ func main() {
 	}
 }
 
-func settingDB(user, password, dbname, host, port string) (*sqlx.DB, error) {
-	db, err := sqlx.Connect("postgres", fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s", user, password, dbname, host, port))
+func settingDB(user, password, dbname, host, port, ssl string) (*sqlx.DB, error) {
+	db, err := sqlx.Connect("postgres",
+		fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s sslmode=%s", user, password, dbname, host, port, ssl))
 	if err != nil {
 		return nil, err
 	}
