@@ -43,6 +43,9 @@ func main() {
 	http.HandleFunc("/histories", h.HandleListHistories)
 
 	port := os.Getenv("PORT")
+	if port == "" {
+		port = "9000" // Default port if not specified
+	}
 	fmt.Println("server started at localhost: ", port)
 	err = http.ListenAndServe(port, nil)
 	if err != nil {
