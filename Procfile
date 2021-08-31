@@ -1,1 +1,1 @@
-web: bin/go-price-monitor
+web: bin/pricemonitor
