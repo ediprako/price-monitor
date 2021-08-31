@@ -7,11 +7,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/ediprako/pricemonitor/handler"
 	"github.com/ediprako/pricemonitor/handler/cron"
 	"github.com/ediprako/pricemonitor/repository/pgsql"
 	"github.com/ediprako/pricemonitor/usecase"
+	"github.com/gorilla/mux"
 	"github.com/jasonlvhit/gocron"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
@@ -46,12 +48,12 @@ func mainCron() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	user := os.Getenv("DBUSER")
-	password := os.Getenv("DBPASSWORD")
-	dbname := os.Getenv("DBNAME")
-	host := os.Getenv("DBHOST")
-	dbport := os.Getenv("DBPORT")
-	sslmode := os.Getenv("DBSSLMODE")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+	host := os.Getenv("DB_HOST")
+	dbport := os.Getenv("DB_PORT")
+	sslmode := os.Getenv("DB_SSLMODE")
 
 	db, err := settingDB(user, password, dbname, host, dbport, sslmode)
 	if err != nil {
@@ -72,12 +74,12 @@ func mainHttp() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	user := os.Getenv("DBUSER")
-	password := os.Getenv("DBPASSWORD")
-	dbname := os.Getenv("DBNAME")
-	host := os.Getenv("DBHOST")
-	dbport := os.Getenv("DBPORT")
-	sslmode := os.Getenv("DBSSLMODE")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+	host := os.Getenv("DB_HOST")
+	dbport := os.Getenv("DB_PORT")
+	sslmode := os.Getenv("DB_SSLMODE")
 
 	db, err := settingDB(user, password, dbname, host, dbport, sslmode)
 	if err != nil {
@@ -93,33 +95,34 @@ func mainHttp() {
 		log.Fatal(err)
 	}
 
-	http.Handle("/static/",
-		http.StripPrefix("/static/",
-			http.FileServer(http.Dir("handler/assets"))))
+	r := mux.NewRouter()
 
-	http.Handle("/images",
-		http.StripPrefix("/images/",
-			http.FileServer(http.Dir("handler/img"))))
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("handler/assets"))))
 
-	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/", h.HandleIndexView).Methods(http.MethodGet)
+	r.HandleFunc("/listview", h.HandleListView).Methods(http.MethodGet)
+	r.HandleFunc("/list/product", h.HandleListProduct).Methods(http.MethodGet)
+	r.HandleFunc("/addlink", h.HandleAddLink).Methods(http.MethodPost)
+	r.HandleFunc("/detailview", h.HandleDetailView).Methods(http.MethodGet)
+	r.HandleFunc("/histories", h.HandleListHistories).Methods(http.MethodGet)
+	r.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("pong"))
-	})
-	http.HandleFunc("/", h.HandleIndexView)
-	http.HandleFunc("/listview", h.HandleListView)
-	http.HandleFunc("/list/product", h.HandleListProduct)
-	http.HandleFunc("/addlink", h.HandleAddLink)
-	http.HandleFunc("/detailview", h.HandleDetailView)
-	http.HandleFunc("/histories", h.HandleListHistories)
+		return
+	}).Methods(http.MethodGet)
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8999" // Default port if not specified
+		port = "8080" // Default port if not specified
 	}
 	fmt.Println("server started at localhost: ", port)
-	err = http.ListenAndServe(":"+port, nil)
-	if err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Handler:      r,
+		Addr:         ":" + port,
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
 	}
+
+	log.Fatal(srv.ListenAndServe())
 }
 
 func settingDB(user, password, dbname, host, port, ssl string) (*sqlx.DB, error) {
