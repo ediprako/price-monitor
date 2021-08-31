@@ -20,10 +20,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func init() {
-	fmt.Println("INIT")
-}
-
 func main() {
 	mode := flag.String("mode", "http", "service mode (http,cron)")
 	flag.Parse()
@@ -65,6 +61,8 @@ func mainCron() {
 	c := cron.New(uc)
 	gocron.Every(1).Minutes().Do(c.CronRefreshProductInformation)
 
+	fmt.Println("starting cron..")
+
 	<-gocron.Start()
 }
 
@@ -97,7 +95,7 @@ func mainHttp() {
 
 	r := mux.NewRouter()
 
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("handler/assets"))))
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./handler/assets"))))
 
 	r.HandleFunc("/", h.HandleIndexView).Methods(http.MethodGet)
 	r.HandleFunc("/listview", h.HandleListView).Methods(http.MethodGet)
