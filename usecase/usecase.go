@@ -19,6 +19,7 @@ type dbProvider interface {
 	InsertPriceHistory(ctx context.Context, productID int64, currentPrice int64, originalPrice int64) error
 	GetTotalProduct(ctx context.Context) (int64, error)
 	GetLastPriceHistory(ctx context.Context, productID int64, limit int) ([]pgsql.PriceHistory, error)
+	UpDatabase(ctx context.Context) error
 }
 
 type usecase struct {
@@ -191,4 +192,8 @@ func (u *usecase) ListPriceHistory(ctx context.Context, productID int64, limit i
 	}
 
 	return result, nil
+}
+
+func (u *usecase) UpDatabase(ctx context.Context) error {
+	return u.db.UpDatabase(ctx)
 }

@@ -191,3 +191,47 @@ func (r *repository) GetLastPriceHistory(ctx context.Context, productID int64, l
 
 	return histories, nil
 }
+
+func (r *repository) UpDatabase(ctx context.Context) error {
+	sql := `CREATE TABLE IF NOT EXISTS public.product (
+		id bigserial NOT NULL,
+		"name" varchar NULL,
+		current_price int8 NULL,
+		original_price int8 NULL,
+		updated_at information_schema."time_stamp" NULL DEFAULT now(),
+		url varchar NULL,
+		CONSTRAINT product_pk PRIMARY KEY (id),
+		CONSTRAINT product_un UNIQUE (name)
+	)`
+	_, err := r.db.ExecContext(ctx, sql)
+	if err != nil {
+		return err
+	}
+
+	sql = `CREATE TABLE IF NOT EXISTS public.price_history (
+		id bigserial NOT NULL,
+		product_id int8 NULL,
+		current_price int8 NULL,
+		original_price int8 NULL,
+		updated_at information_schema."time_stamp" NULL DEFAULT now()
+	)`
+
+	_, err = r.db.ExecContext(ctx, sql)
+	if err != nil {
+		return err
+	}
+
+	sql = `CREATE TABLE IF NOT EXISTS public.product_images (
+		id bigserial NOT NULL,
+		product_id int8 NULL,
+		image varchar NULL,
+		CONSTRAINT product_images_pk PRIMARY KEY (id)
+	)`
+
+	_, err = r.db.ExecContext(ctx, sql)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

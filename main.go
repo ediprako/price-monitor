@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -35,6 +36,11 @@ func main() {
 	uc := usecase.New(repoDB)
 	h := handler.New(uc)
 
+	err = h.HandleUpDatabase(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	http.HandleFunc("/", h.HandleIndexView)
 	http.HandleFunc("/listview", h.HandleListView)
 	http.HandleFunc("/list/product", h.HandleListProduct)
@@ -44,10 +50,10 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "9000" // Default port if not specified
+		port = "8999" // Default port if not specified
 	}
 	fmt.Println("server started at localhost: ", port)
-	err = http.ListenAndServe(port, nil)
+	err = http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

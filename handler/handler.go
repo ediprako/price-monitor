@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"html/template"
+	"log"
 	"net/http"
 	"path"
 	"strconv"
@@ -17,6 +18,7 @@ type usecaseProvider interface {
 	ListProduct(ctx context.Context, draw string, page, pagesize int) (usecase.PaginateData, error)
 	GetProductDetail(ctx context.Context, id int64) (usecase.Product, error)
 	ListPriceHistory(ctx context.Context, productID int64, limit int) ([]usecase.PriceHistory, error)
+	UpDatabase(ctx context.Context) error
 }
 type handler struct {
 	usecase usecaseProvider
@@ -128,4 +130,13 @@ func (h *handler) HandleListHistories(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpHandler.WriteHTTPAjax(w, histories, http.StatusOK)
+}
+
+func (h *handler) HandleUpDatabase(ctx context.Context) error {
+	err := h.usecase.UpDatabase(ctx)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
 }
