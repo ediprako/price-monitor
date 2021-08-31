@@ -32,6 +32,7 @@ func New(db dbProvider) *usecase {
 }
 
 type ProductPayload pgsql.ProductPayload
+
 type Product struct {
 	ID                  int64    `json:"id"`
 	Name                string   `json:"name"`
@@ -43,6 +44,13 @@ type Product struct {
 	Images              []string `json:"images,omitempty"`
 }
 
+type PaginateData struct {
+	Draw            string    `json:"draw"`
+	RecordsTotal    int64     `json:"recordsTotal"`
+	RecordsFiltered int64     `json:"recordsFiltered"`
+	Products        []Product `json:"data"`
+}
+
 type PriceHistory struct {
 	ID            int64  `json:"id"`
 	ProductID     int64  `json:"product_id"`
@@ -51,17 +59,17 @@ type PriceHistory struct {
 	UpdateTime    string `json:"update_time"`
 }
 
-func (u *usecase) RegisterProduct(ctx context.Context, link string) error {
-	err, product, err2 := u.getProductFromLink(link)
-	if err2 != nil {
-		return err2
+func (u *usecase) RegisterProduct(ctx context.Context, link string) (int64, error) {
+	product, err := u.getProductFromLink(link)
+	if err != nil {
+		return 0, err
 	}
 
-	_, err = u.db.UpsertProduct(ctx, pgsql.ProductPayload(product))
+	id, err := u.db.UpsertProduct(ctx, pgsql.ProductPayload(product))
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return id, nil
 }
 
 func (u *usecase) GetProductDetail(ctx context.Context, id int64) (Product, error) {
@@ -82,13 +90,6 @@ func (u *usecase) GetProductDetail(ctx context.Context, id int64) (Product, erro
 	}
 
 	return result, nil
-}
-
-type PaginateData struct {
-	Draw            string    `json:"draw"`
-	RecordsTotal    int64     `json:"recordsTotal"`
-	RecordsFiltered int64     `json:"recordsFiltered"`
-	Products        []Product `json:"data"`
 }
 
 func (u *usecase) ListProduct(ctx context.Context, draw string, page, pagesize int) (PaginateData, error) {
@@ -127,14 +128,14 @@ func (u *usecase) ListProduct(ctx context.Context, draw string, page, pagesize i
 	return paging, nil
 }
 
-func (u *usecase) getProductFromLink(link string) (error, ProductPayload, error) {
+func (u *usecase) getProductFromLink(link string) (ProductPayload, error) {
 	response, err := http.Get(link)
 	if err != nil {
-		return nil, ProductPayload{}, err
+		return ProductPayload{}, err
 	}
 	doc, err := goquery.NewDocumentFromReader(response.Body)
 	if err != nil {
-		return nil, ProductPayload{}, err
+		return ProductPayload{}, err
 	}
 
 	var product ProductPayload
@@ -145,6 +146,8 @@ func (u *usecase) getProductFromLink(link string) (error, ProductPayload, error)
 	if product.OriginalPrice == 0 {
 		product.OriginalPrice = product.CurrentPrice
 	}
+
+	// find images
 	doc.Find(".css-1iv32ek").Children().Each(func(i int, sel *goquery.Selection) {
 		srcCrop, _ := sel.Find("img#product-image").Attr("src")
 		sliceSrc := strings.Split(srcCrop, "&")
@@ -154,7 +157,7 @@ func (u *usecase) getProductFromLink(link string) (error, ProductPayload, error)
 	})
 
 	product.URL = link
-	return err, product, nil
+	return product, err
 }
 
 func convertToAngka(rupiah string) int64 {

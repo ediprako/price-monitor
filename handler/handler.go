@@ -7,17 +7,17 @@ import (
 	"path"
 	"strconv"
 
-	httpHandler "github.com/ediprako/pricemonitor/handler/http"
 	"github.com/ediprako/pricemonitor/usecase"
+
+	httpHandler "github.com/ediprako/pricemonitor/handler/http"
 )
 
 type usecaseProvider interface {
-	RegisterProduct(ctx context.Context, link string) error
+	RegisterProduct(ctx context.Context, link string) (int64, error)
 	ListProduct(ctx context.Context, draw string, page, pagesize int) (usecase.PaginateData, error)
 	GetProductDetail(ctx context.Context, id int64) (usecase.Product, error)
 	ListPriceHistory(ctx context.Context, productID int64, limit int) ([]usecase.PriceHistory, error)
 }
-
 type handler struct {
 	usecase usecaseProvider
 }
@@ -87,15 +87,15 @@ func (h *handler) HandleDetailView(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) HandleAddLink(w http.ResponseWriter, r *http.Request) {
 	inputLink := r.FormValue("input_link")
-	err := h.usecase.RegisterProduct(r.Context(), inputLink)
+	id, err := h.usecase.RegisterProduct(r.Context(), inputLink)
 	if err != nil {
 		httpHandler.WriteHTTPResponse(w, nil, err, http.StatusInternalServerError)
 		return
 	}
 
 	httpHandler.WriteHTTPResponse(w, struct {
-		ID int64
-	}{1}, nil, http.StatusOK)
+		ID int64 `json:"id"`
+	}{id}, nil, http.StatusOK)
 	return
 }
 
