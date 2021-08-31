@@ -36,7 +36,9 @@ func (h *handler) HandleIndexView(w http.ResponseWriter, _ *http.Request) {
 		path.Join("handler", "ui", "navbar.html"),
 	))
 
-	var data = map[string]interface{}{}
+	var data = map[string]interface{}{
+		"title": "Input Link",
+	}
 
 	err := tmpl.ExecuteTemplate(w, "index", data)
 	if err != nil {
@@ -53,7 +55,9 @@ func (h *handler) HandleListView(w http.ResponseWriter, _ *http.Request) {
 		path.Join("handler", "ui", "navbar.html"),
 	))
 
-	var data = map[string]interface{}{}
+	var data = map[string]interface{}{
+		"title": "List All Price",
+	}
 
 	err := tmpl.ExecuteTemplate(w, "list", data)
 	if err != nil {
@@ -77,6 +81,7 @@ func (h *handler) HandleDetailView(w http.ResponseWriter, r *http.Request) {
 	product, err := h.usecase.GetProductDetail(r.Context(), id)
 	var data = map[string]interface{}{
 		"product": product,
+		"title":   "Detail Product - " + product.Name,
 	}
 
 	err = tmpl.ExecuteTemplate(w, "detail", data)

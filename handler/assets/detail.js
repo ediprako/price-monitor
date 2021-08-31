@@ -1,5 +1,6 @@
 $(document).ready(function () {
-    $.get("/histories", {product_id: '13'})
+    let product_id = $("#product_id").val();
+    $.get("/histories", {product_id: product_id})
         .done(function (data) {
             let current_prices = data.map(product => product.current_price);
             let original_price = data.map(product => product.original_price);
