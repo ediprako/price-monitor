@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/ediprako/pricemonitor/handler"
+	"github.com/ediprako/pricemonitor/handler/cron"
 	"github.com/ediprako/pricemonitor/repository/pgsql"
 	"github.com/ediprako/pricemonitor/usecase"
+	"github.com/jasonlvhit/gocron"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -20,6 +23,50 @@ func init() {
 }
 
 func main() {
+	mode := flag.String("mode", "http", "service mode (http,cron)")
+	flag.Parse()
+
+	if *mode == "" {
+		*mode = "http"
+	}
+
+	switch *mode {
+	case "http":
+		mainHttp()
+	case "cron":
+		mainCron()
+	default:
+		log.Fatal("unknown mode")
+	}
+}
+
+func mainCron() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	user := os.Getenv("DBUSER")
+	password := os.Getenv("DBPASSWORD")
+	dbname := os.Getenv("DBNAME")
+	host := os.Getenv("DBHOST")
+	dbport := os.Getenv("DBPORT")
+	sslmode := os.Getenv("DBSSLMODE")
+
+	db, err := settingDB(user, password, dbname, host, dbport, sslmode)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	repoDB := pgsql.New(db)
+	uc := usecase.New(repoDB)
+	c := cron.New(uc)
+	gocron.Every(1).Minutes().Do(c.CronRefreshProductInformation)
+
+	<-gocron.Start()
+}
+
+func mainHttp() {
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatalf("Error loading .env file")
@@ -54,6 +101,9 @@ func main() {
 		http.StripPrefix("/images/",
 			http.FileServer(http.Dir("handler/img"))))
 
+	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("pong"))
+	})
 	http.HandleFunc("/", h.HandleIndexView)
 	http.HandleFunc("/listview", h.HandleListView)
 	http.HandleFunc("/list/product", h.HandleListProduct)

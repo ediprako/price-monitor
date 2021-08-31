@@ -2,10 +2,12 @@ package usecase
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/dustin/go-humanize"
@@ -14,6 +16,7 @@ import (
 
 type dbProvider interface {
 	GetProductsByID(ctx context.Context, id int64) (pgsql.Product, error)
+	GetProductsByUpdateTime(ctx context.Context, startTime, endTime time.Time) ([]pgsql.Product, error)
 	GetProducts(ctx context.Context, limit, offset int) ([]pgsql.Product, error)
 	UpsertProduct(ctx context.Context, payload pgsql.ProductPayload) (int64, error)
 	InsertPriceHistory(ctx context.Context, productID int64, currentPrice int64, originalPrice int64) error
@@ -196,4 +199,29 @@ func (u *usecase) ListPriceHistory(ctx context.Context, productID int64, limit i
 
 func (u *usecase) UpDatabase(ctx context.Context) error {
 	return u.db.UpDatabase(ctx)
+}
+
+func (u *usecase) RefreshProductInformation(ctx context.Context) error {
+	startDate := time.Now().Add(time.Duration(-1) * time.Hour)
+	startDate = startDate.Add(time.Duration(startDate.Second()*-1) * time.Second)
+	endDate := startDate.Add(time.Duration(1) * time.Minute)
+
+	products, err := u.db.GetProductsByUpdateTime(ctx, startDate, endDate)
+	if err != nil {
+		return err
+	}
+
+	if len(products) == 0 {
+		log.Println("no product updated")
+		return nil
+	}
+
+	for _, product := range products {
+		_, err = u.RegisterProduct(ctx, product.URL)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

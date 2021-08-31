@@ -81,6 +81,19 @@ func (r *repository) GetProductsByID(ctx context.Context, id int64) (Product, er
 	return product, err
 }
 
+func (r *repository) GetProductsByUpdateTime(ctx context.Context, startTime, endTime time.Time) ([]Product, error) {
+	sql := `SELECT id, name, current_price, original_price,coalesce(url,'') url FROM
+		product WHERE updated_at between $1 AND $2`
+
+	var product []Product
+	err := r.db.SelectContext(ctx, &product, sql, startTime, endTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return product, nil
+}
+
 func (r *repository) GetProducts(ctx context.Context, limit, offset int) ([]Product, error) {
 	sql := `SELECT id, name, current_price, original_price, coalesce(url,'') url FROM
 		product LIMIT $1 OFFSET $2`

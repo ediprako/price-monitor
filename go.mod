@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/PuerkitoBio/goquery v1.7.1
 	github.com/dustin/go-humanize v1.0.0
+	github.com/jasonlvhit/gocron v0.0.1 // indirect
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/joho/godotenv v1.3.0
 	github.com/lib/pq v1.2.0
