@@ -11,6 +11,7 @@ import (
 	"github.com/ediprako/pricemonitor/repository/pgsql"
 	"github.com/ediprako/pricemonitor/usecase"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
@@ -19,17 +20,20 @@ func init() {
 }
 
 func main() {
-	http.Handle("/static/",
-		http.StripPrefix("/static/",
-			http.FileServer(http.Dir("handler/assets"))))
-
-	http.Handle("/images",
-		http.StripPrefix("/images/",
-			http.FileServer(http.Dir("handler/img"))))
-
-	db, err := sqlx.Connect("postgres", "postgres://uaqvhewtenpctm:6323e54cc2b84b73ad2ebac5820e172c15624660d4990ce97031eeea462bd75a@ec2-54-156-60-12.compute-1.amazonaws.com:5432/dgk2vue5v330d")
+	err := godotenv.Load(".env")
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("Error loading .env file")
+	}
+
+	user := os.Getenv("DBUSER")
+	password := os.Getenv("DBPASSWORD")
+	dbname := os.Getenv("DBNAME")
+	host := os.Getenv("DBHOST")
+	dbport := os.Getenv("DBPORT")
+
+	db, err := settingDB(user, password, dbname, host, dbport)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	repoDB := pgsql.New(db)
@@ -40,6 +44,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	http.Handle("/static/",
+		http.StripPrefix("/static/",
+			http.FileServer(http.Dir("handler/assets"))))
+
+	http.Handle("/images",
+		http.StripPrefix("/images/",
+			http.FileServer(http.Dir("handler/img"))))
 
 	http.HandleFunc("/", h.HandleIndexView)
 	http.HandleFunc("/listview", h.HandleListView)
@@ -57,4 +69,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func settingDB(user, password, dbname, host, port string) (*sqlx.DB, error) {
+	db, err := sqlx.Connect("postgres", fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s", user, password, dbname, host, port))
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
