@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/ediprako/pricemonitor/handler"
 	"github.com/ediprako/pricemonitor/repository/pgsql"
@@ -41,8 +42,9 @@ func main() {
 	http.HandleFunc("/detailview", h.HandleDetailView)
 	http.HandleFunc("/histories", h.HandleListHistories)
 
-	fmt.Println("server started at localhost:9000")
-	err = http.ListenAndServe(":8999", nil)
+	port := os.Getenv("PORT")
+	fmt.Println("server started at localhost: ", port)
+	err = http.ListenAndServe(port, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
